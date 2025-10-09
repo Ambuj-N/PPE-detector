@@ -6,4 +6,6 @@ numpy>=1.24.0
 opencv-python-headless>=4.7.0
 Pillow<10
 huggingface-hub>=0.20.0
+altair>=4.2.0
+pandas>=1.5.0
 
