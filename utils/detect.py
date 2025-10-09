@@ -1,5 +1,3 @@
-# utils/detect.py
-
 import os
 from pathlib import Path
 from typing import Tuple, Dict, List
@@ -200,7 +198,7 @@ def detect_ppe_image(uploaded_file_or_pil, selected_items: List[str]) -> Tuple[I
     return annotated_pil, missing_counts, total_violators, person_count
 
 
-def detect_ppe_video(input_video_path: str, output_video_path: str, selected_items: List[str]) -> Tuple[str, Dict[str, int], int, int]:
+def detect_ppe_video(input_video_path: str, output_video_path: str, selected_items: List[str], progress_callback=None) -> Tuple[str, Dict[str, int], int, int]:
     """
     Process a video, annotate frames and compute counts.
 
@@ -213,6 +211,8 @@ def detect_ppe_video(input_video_path: str, output_video_path: str, selected_ite
     if not cap.isOpened():
         raise RuntimeError("Cannot open input video")
 
+    # Get video properties
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
@@ -238,6 +238,8 @@ def detect_ppe_video(input_video_path: str, output_video_path: str, selected_ite
         boxes = getattr(res, "boxes", None)
         if boxes is None:
             out.write(frame)
+            if progress_callback:
+                progress_callback(frame_idx / total_frames)
             continue
         try:
             xyxy_arr = boxes.xyxy.cpu().numpy()
@@ -280,8 +282,7 @@ def detect_ppe_video(input_video_path: str, output_video_path: str, selected_ite
                     missing_counts[item] += 1
                     violator_flags_frame[p_idx] = True
 
-        # count distinct violators roughly as number of violator persons in frame (this overcounts across frames)
-        # We'll return total_violators as number of distinct persons seen who violated at least once — approximate here:
+        # count distinct violators roughly as number of violator persons in frame
         for idx, flag in enumerate(violator_flags_frame):
             if flag:
                 violator_person_ids.add((frame_idx, idx))  # frame-scoped id; keep approximate
@@ -289,16 +290,17 @@ def detect_ppe_video(input_video_path: str, output_video_path: str, selected_ite
         # annotate frame similar to image
         annotated = res.plot() if hasattr(res, "plot") else frame_rgb
         annotated_bgr = cv2.cvtColor(annotated.astype("uint8"), cv2.COLOR_RGB2BGR)
-        # draw existing boxes already done by res.plot(); we can write text overlay
         out.write(annotated_bgr)
+
+        # Update progress
+        if progress_callback:
+            progress_callback(frame_idx / total_frames)
 
     cap.release()
     out.release()
 
-    # approximate total_violators = number of unique frame-person pairs flagged (not perfect)
+    # approximate total_violators = number of unique frame-person pairs flagged
     total_violators = len(violator_person_ids)
-    # If you want a better unique-person tracking you must implement per-frame tracking (e.g., SORT/DeepSort) — out of scope
     total_persons = total_persons_seen
 
     return output_video_path, missing_counts, total_violators, total_persons
-
