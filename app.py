@@ -9,74 +9,75 @@ import numpy as np
 import pandas as pd
 import altair as alt
 
-from utils.detect import detect_ppe_image, detect_ppe_video, DEFAULT_PPE_ITEMS
+from utils.detect import detect_ppe_image, detect_ppe_video, SUPPORTED_ITEMS
 
-# Page config
 st.set_page_config(page_title="PPE Detector", layout="wide", initial_sidebar_state="expanded")
 st.title("🦺 PPE Detector")
 
-# Sidebar: select PPE
 st.sidebar.header("Select PPE items to monitor")
+# show prettier labels and default checked
 selected_items = []
-for item in DEFAULT_PPE_ITEMS:
-    if st.sidebar.checkbox(item.capitalize(), value=True):
+for item in SUPPORTED_ITEMS:
+    if st.sidebar.checkbox(item, value=True):
         selected_items.append(item)
 
 if not selected_items:
     st.sidebar.warning("Select at least one PPE item to enable detection.")
 
 st.sidebar.markdown("---")
-st.sidebar.info("If your model uses different label names (e.g. 'hardhat' for helmet), add synonyms in utils/detect.PPE_SYNONYMS.")
-
-# Tabs
-tab_img, tab_vid = st.tabs(["Image", "Video"])
+st.sidebar.info("Model labels used: Hardhat, Mask, NO-Hardhat, NO-Mask, NO-Safety Vest, Person, Safety Vest, ...")
 
 def df_from_counts(counts: dict) -> pd.DataFrame:
     df = pd.DataFrame({"Item": list(counts.keys()), "Missing Count": list(counts.values())})
     return df.sort_values("Missing Count", ascending=False).reset_index(drop=True)
 
-# IMAGE TAB
-with tab_img:
+# Tabs: Image / Video
+tab1, tab2 = st.tabs(["Image", "Video"])
+
+with tab1:
     st.header("Image inspector")
     uploaded_img = st.file_uploader("Upload image (jpg, png)", type=["jpg", "jpeg", "png"], key="img")
-
     if uploaded_img is not None:
         if not selected_items:
             st.error("Please select at least one PPE item in the sidebar.")
         else:
             with st.spinner("Running detection..."):
                 start = time.time()
-                annotated_pil, missing_counts, total_violators, person_count = detect_ppe_image(uploaded_img, selected_items)
+                try:
+                    annotated_pil, missing_counts, total_violators, person_count = detect_ppe_image(uploaded_img, selected_items)
+                except Exception as e:
+                    st.exception(f"Detection error: {e}")
+                    annotated_pil, missing_counts, total_violators, person_count = None, {it: 0 for it in selected_items}, 0, 0
                 elapsed = time.time() - start
 
-            st.success(f"Inference done in {elapsed:.2f}s")
-            col1, col2 = st.columns([0.7, 0.3])
+            if annotated_pil is not None:
+                st.success(f"Inference done in {elapsed:.2f}s")
+                col1, col2 = st.columns([0.7, 0.3])
 
-            with col1:
-                st.image(annotated_pil, caption="Annotated result", use_column_width=True)
-                # Download annotated image
-                buf = io.BytesIO()
-                annotated_pil.save(buf, format="PNG")
-                buf.seek(0)
-                st.download_button("⬇️ Download annotated image", data=buf.getvalue(), file_name="annotated_ppe.png", mime="image/png")
+                with col1:
+                    st.image(annotated_pil, caption="Annotated result", use_column_width=True)
+                    # Download annotated image
+                    buf = io.BytesIO()
+                    annotated_pil.save(buf, format="PNG")
+                    buf.seek(0)
+                    st.download_button("⬇️ Download annotated image", data=buf.getvalue(), file_name="annotated_ppe.png", mime="image/png")
 
-            with col2:
-                st.subheader("Summary")
-                st.metric("Persons detected (approx)", person_count)
-                st.metric("Violators (persons missing ≥1 selected item)", total_violators)
-                df = df_from_counts(missing_counts)
-                st.table(df)
+                with col2:
+                    st.subheader("Summary")
+                    st.metric("Persons detected (approx)", person_count)
+                    st.metric("Violators (persons missing ≥1 selected item)", total_violators)
+                    df = df_from_counts(missing_counts)
+                    st.table(df)
 
-                if not df.empty:
-                    chart = alt.Chart(df).mark_bar().encode(
-                        x=alt.X("Missing Count:Q"),
-                        y=alt.Y("Item:N", sort='-x'),
-                        tooltip=["Item", "Missing Count"]
-                    ).properties(height=250)
-                    st.altair_chart(chart, use_container_width=True)
+                    if not df.empty:
+                        chart = alt.Chart(df).mark_bar().encode(
+                            x=alt.X("Missing Count:Q"),
+                            y=alt.Y("Item:N", sort='-x'),
+                            tooltip=["Item", "Missing Count"]
+                        ).properties(height=250)
+                        st.altair_chart(chart, use_container_width=True)
 
-# VIDEO TAB
-with tab_vid:
+with tab2:
     st.header("Video inspector")
     uploaded_vid = st.file_uploader("Upload short video (mp4, mov, avi)", type=["mp4", "mov", "avi"], key="vid")
     if uploaded_vid is not None:
