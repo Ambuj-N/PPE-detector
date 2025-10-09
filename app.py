@@ -4,56 +4,64 @@ import streamlit as st
 from PIL import Image
 import tempfile
 import os
-
-from utils.detect import detect_ppe_image, detect_ppe_video
+from utils.detect import detect_ppe_image, detect_ppe_video, DEFAULT_PPE_ITEMS
 
 st.set_page_config(page_title="PPE Detector", layout="wide")
 st.title("🦺 PPE Detector")
 
 st.markdown(
-    "Upload an **image** or **video**. The app will detect PPE items (helmet, vest, gloves, goggles, mask) "
-    "and flag missing items. Model is downloaded automatically from the Hugging Face model repo."
+    "Upload an **image** or **video**, then select which PPE items should be checked. "
+    "The app will detect missing PPE items and report violations."
 )
+
+# User-selected PPE
+st.sidebar.header("Select PPE to Monitor")
+selected_items = [
+    item for item in DEFAULT_PPE_ITEMS if st.sidebar.checkbox(item.capitalize(), True)
+]
+if not selected_items:
+    st.sidebar.warning("Select at least one PPE item.")
+st.sidebar.info("Default items: helmet, vest, gloves, goggles, mask")
 
 uploaded = st.file_uploader("Upload image or video", type=["jpg", "jpeg", "png", "mp4", "mov", "avi"])
 
-if uploaded is None:
-    st.info("Upload a file to get started.")
-else:
-    file_type = uploaded.type
-    if file_type.startswith("image"):
-        st.write("Processing image...")
-        try:
-            annotated_pil, missing = detect_ppe_image(uploaded)
-            st.image(annotated_pil, caption="Annotated result", use_column_width=True)
-            if missing:
-                st.warning(f"⚠️ Missing PPE items detected: {', '.join(missing)}")
-            else:
-                st.success("✅ All required PPE items detected (for the detected persons).")
-        except Exception as e:
-            st.error(f"Error during detection: {e}")
+if uploaded:
+    if uploaded.type.startswith("image"):
+        st.write("🔍 Detecting PPE in image...")
+        annotated, missing_counts, total_violators = detect_ppe_image(uploaded, selected_items)
 
-    elif file_type.startswith("video"):
-        st.write("Processing video (this may take time depending on video length)...")
+        st.image(annotated, caption="Detection Result", use_column_width=True)
+
+        st.subheader("📊 Detection Summary")
+        st.table(
+            {"Item": list(missing_counts.keys()), "Missing Count": list(missing_counts.values())}
+        )
+
+        if total_violators > 0:
+            st.warning(f"⚠️ Total persons violating PPE rules: {total_violators}")
+        else:
+            st.success("✅ All required PPE detected properly.")
+    else:
+        st.write("🎥 Detecting PPE in video (please wait)...")
         with tempfile.NamedTemporaryFile(suffix=os.path.splitext(uploaded.name)[1], delete=False) as tmp:
             tmp.write(uploaded.read())
             tmp_path = tmp.name
 
         out_path = "output_annotated.mp4"
-        try:
-            out_video_path, missing = detect_ppe_video(tmp_path, output_video_path=out_path)
-            st.video(out_video_path)
-            if missing:
-                st.warning(f"⚠️ Missing PPE items found in video frames: {', '.join(missing)}")
-            else:
-                st.success("✅ All required PPE items detected across video frames.")
-        except Exception as e:
-            st.error(f"Error processing video: {e}")
-        finally:
-            try:
-                os.remove(tmp_path)
-            except Exception:
-                pass
-    else:
-        st.error("Unsupported file type.")
+        annotated_video, missing_counts, total_violators = detect_ppe_video(tmp_path, out_path, selected_items)
+
+        st.video(annotated_video)
+        st.subheader("📊 Detection Summary")
+        st.table(
+            {"Item": list(missing_counts.keys()), "Missing Count": list(missing_counts.values())}
+        )
+
+        if total_violators > 0:
+            st.warning(f"⚠️ Total persons violating PPE rules: {total_violators}")
+        else:
+            st.success("✅ All required PPE detected properly.")
+
+        os.remove(tmp_path)
+else:
+    st.info("Please upload a file to start.")
 
