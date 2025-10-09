@@ -8,7 +8,6 @@ from PIL import Image
 import cv2
 from ultralytics import YOLO
 
-# Optionally download from HF if local model not present
 try:
     from huggingface_hub import hf_hub_download
 except Exception:

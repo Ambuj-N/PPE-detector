@@ -15,7 +15,6 @@ st.set_page_config(page_title="PPE Detector", layout="wide", initial_sidebar_sta
 st.title("🦺 PPE Detector")
 
 st.sidebar.header("Select PPE items to monitor")
-# show prettier labels and default checked
 selected_items = []
 for item in SUPPORTED_ITEMS:
     if st.sidebar.checkbox(item, value=True):
