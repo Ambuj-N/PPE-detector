@@ -1,53 +1,59 @@
-import torch
-import gradio as gr
-from huggingface_hub import hf_hub_download
-from utils.detect import detect_ppe  # your custom detection logic
+# app.py
 
-# ----------------------------
-# Download the YOLO model from HF Hub
-# ----------------------------
-model_path = hf_hub_download(
-    repo_id="Anbhigya/ppe-detector-model",  # your model repo
-    filename="best.pt"
+import streamlit as st
+from PIL import Image
+import tempfile
+import os
+
+from utils.detect import detect_ppe_image, detect_ppe_video
+
+st.set_page_config(page_title="PPE Detector", layout="wide")
+st.title("🦺 PPE Detector")
+
+st.markdown(
+    "Upload an **image** or **video**. The app will detect PPE items (helmet, vest, gloves, goggles, mask) "
+    "and flag missing items. Model is downloaded automatically from the Hugging Face model repo."
 )
 
-# Load YOLOv5 custom model
-model = torch.hub.load('ultralytics/yolov5', 'custom', path=model_path)
+uploaded = st.file_uploader("Upload image or video", type=["jpg", "jpeg", "png", "mp4", "mov", "avi"])
 
-# ----------------------------
-# PPE Detection Function
-# ----------------------------
-def predict(image):
-    """
-    Input: image (PIL/ndarray)
-    Output: annotated image + list of missing PPE items
-    """
-    results = model(image)
-    
-    # You can modify detect_ppe to return missing PPE items or flagged info
-    flagged_info = detect_ppe(results)  # returns dict/list
-    annotated_image = results.render()[0]  # YOLO returns list of images
-    return annotated_image, str(flagged_info)
+if uploaded is None:
+    st.info("Upload a file to get started.")
+else:
+    file_type = uploaded.type
+    if file_type.startswith("image"):
+        st.write("Processing image...")
+        try:
+            annotated_pil, missing = detect_ppe_image(uploaded)
+            st.image(annotated_pil, caption="Annotated result", use_column_width=True)
+            if missing:
+                st.warning(f"⚠️ Missing PPE items detected: {', '.join(missing)}")
+            else:
+                st.success("✅ All required PPE items detected (for the detected persons).")
+        except Exception as e:
+            st.error(f"Error during detection: {e}")
 
-# ----------------------------
-# Gradio UI
-# ----------------------------
-title = "PPE Detector"
-description = """
-Upload an image or video frame, and the system will detect PPE items.
-If people are missing PPE items, they will be flagged.
-"""
+    elif file_type.startswith("video"):
+        st.write("Processing video (this may take time depending on video length)...")
+        with tempfile.NamedTemporaryFile(suffix=os.path.splitext(uploaded.name)[1], delete=False) as tmp:
+            tmp.write(uploaded.read())
+            tmp_path = tmp.name
 
-interface = gr.Interface(
-    fn=predict,
-    inputs=gr.Image(type="pil"),
-    outputs=[gr.Image(type="numpy"), gr.Textbox()],
-    title=title,
-    description=description,
-    allow_flagging="never"
-)
-
-# Launch Space
-if __name__ == "__main__":
-    interface.launch()
+        out_path = "output_annotated.mp4"
+        try:
+            out_video_path, missing = detect_ppe_video(tmp_path, output_video_path=out_path)
+            st.video(out_video_path)
+            if missing:
+                st.warning(f"⚠️ Missing PPE items found in video frames: {', '.join(missing)}")
+            else:
+                st.success("✅ All required PPE items detected across video frames.")
+        except Exception as e:
+            st.error(f"Error processing video: {e}")
+        finally:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+    else:
+        st.error("Unsupported file type.")
 
