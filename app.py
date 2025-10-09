@@ -88,7 +88,7 @@ st.sidebar.markdown("**Help**")
 st.sidebar.info("Upload an image (jpg/png) or short video (mp4). The UI shows per-item missing counts and total violators. Use downloads to save results.")
 
 # Tabs for Image / Video
-tab_img, tab_vid = st.tabs(["Image", "Image Detection", "Video Detection"])
+tab_img, tab_vid = st.tabs(["Image Detection", "Video Detection"])
 
 # A small area to show model status/time — will be populated after first detection
 model_info_placeholder = st.empty()
