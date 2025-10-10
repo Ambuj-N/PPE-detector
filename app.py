@@ -117,6 +117,27 @@ st.markdown('<h1 class="main-header">🦺 PPE Detection Pro</h1>', unsafe_allow_
 st.markdown("### Advanced Personal Protective Equipment Monitoring System")
 
 # ==========================================
+# 👋 WELCOME BANNER (Shows once per session)
+# ==========================================
+if "welcome_shown" not in st.session_state:
+    st.session_state["welcome_shown"] = False
+
+if not st.session_state["welcome_shown"]:
+    with st.expander("👋 Welcome to PPE Detection Pro!", expanded=True):
+        st.markdown("""
+        **Created by:**  
+        - **Ambuj Nayak** ([GitHub](https://github.com/Ambuj-N)) [24074007]
+        - Paturi Hemanth Sai [24075065] 
+        - Ankit Raj [24074011]
+        - Jalla Poojitha [24124022]
+
+        This tool uses AI to detect Personal Protective Equipment (PPE) in images and videos.  
+        Built with ❤️ using **Streamlit**, **YOLOv8**, and **OpenCV**.
+        """)
+        if st.button("Got it! ✅"):
+            st.session_state["welcome_shown"] = True
+            st.rerun()
+# ==========================================
 # 🧩 SIDEBAR CONFIGURATION
 # ==========================================
 st.sidebar.markdown("## ⚙️ Configuration")
@@ -248,7 +269,17 @@ with tab3:
     3. Set which ones trigger warnings.
     4. View results and download analysis.
     """)
+    
+    st.markdown("---")
+    st.caption(f"💡 Developed by **Ambuj Nayak** ([@Ambuj-N(https://github.com/Ambuj-N)) and team for safety compliance.")
 
-# Footer
-st.markdown("<hr><center>🦺 PPE Detection Pro | Powered by Streamlit</center>", unsafe_allow_html=True)
+# Footer with credit
+st.markdown(f"""
+<hr>
+<center>
+    🦺 <strong>PPE Detector</strong> | 
+    Built by <a href="https://github.com/Ambuj-N" target="_blank" style="color:{primary}; text-decoration: none; font-weight: 600;">Ambuj Nayak</a> & Team |
+    IIT BHU (Varanasi)
+</center>
+""", unsafe_allow_html=True)
 
