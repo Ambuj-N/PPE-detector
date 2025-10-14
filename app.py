@@ -16,8 +16,8 @@ from utils.detect import detect_ppe_image, detect_ppe_video, SUPPORTED_ITEMS, AL
 # 🌐 PAGE CONFIGURATION
 # ==========================================
 st.set_page_config(
-    page_title="PPE Detector Pro", 
-    layout="wide", 
+    page_title="PPE Detector Pro",
+    layout="wide",
     initial_sidebar_state="expanded",
     page_icon="🦺"
 )
@@ -269,7 +269,7 @@ with tab3:
     3. Set which ones trigger warnings.
     4. View results and download analysis.
     """)
-    
+
     st.markdown("---")
     st.caption(f"💡 Developed by **Ambuj Nayak** ([@Ambuj-N(https://github.com/Ambuj-N)) and team for safety compliance.")
 
@@ -277,7 +277,7 @@ with tab3:
 st.markdown(f"""
 <hr>
 <center>
-    🦺 <strong>PPE Detector</strong> | 
+    🦺 <strong>PPE Detector</strong> |
     Built by <a href="https://github.com/Ambuj-N" target="_blank" style="color:{primary}; text-decoration: none; font-weight: 600;">Ambuj Nayak</a> & Team |
     IIT BHU (Varanasi)
 </center>
